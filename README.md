@@ -46,7 +46,7 @@ The recorded interaction with Pepper is included in this repository.
 | Team Member | Main Work |
 |---|---|
 | Maria Akiki | Dance-floor interaction and entertainment flow |
-| Arsen Eliane | Farewell, feedback, testing, future improvements, and conclusion |
+| Arsen Eliane | Dance-floor, Farewell, feedback, testing, future improvements, and conclusion |
 | Charbel Assaker | Invitation code, table assignment, menu, ordering, and billing |
 | Georges Sarkis | Face-recognition use case|
 | Charbel Ghaya | Greeting, name input, and opening interaction |

@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face Recognition — Technical Study Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:       #0D1F3C;
+    --navy2:      #1A3358;
+    --navy3:      #0A1828;
+    --gold:       #C9973A;
+    --gold-light: #E8C068;
+    --teal:       #00A3A3;
+    --teal-light: #33C4C4;
+    --green:      #06C490;
+    --red:        #E84B6A;
+    --white:      #FFFFFF;
+    --offwhite:   #F0F4F8;
+    --gray:       #7A8FA6;
+    --card-bg:    #112035;
+    --code-bg:    #070F1A;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* noise */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ambient glow top-right */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -15%;
+    right: -8%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(0,163,163,0.1) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 32px 120px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ════════════ HEADER ════════════ */
+  .header {
+    margin-bottom: 60px;
+    animation: fadeUp 0.7s ease both;
+  }
+
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .eyebrow::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--teal), transparent);
+    max-width: 220px;
+  }
+
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(34px, 5.5vw, 52px);
+    font-weight: 700;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 40%, var(--gold-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+
+  .header-sub {
+    font-size: 14px;
+    color: var(--gray);
+    margin-top: 10px;
+  }
+
+  .header-sub span { color: var(--teal); }
+
+  /* ════════════ TOC ════════════ */
+  .toc {
+    background: var(--card-bg);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+
+  .toc-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    text-decoration: none;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .toc-item:hover {
+    background: rgba(0,163,163,0.08);
+    border-color: rgba(0,163,163,0.25);
+    color: var(--white);
+    transform: translateX(3px);
+  }
+
+  .toc-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--teal);
+    min-width: 22px;
+  }
+
+  /* ════════════ SECTION ════════════ */
+  .section {
+    margin-bottom: 36px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .section:nth-child(1)  { animation-delay: 0.1s; }
+  .section:nth-child(2)  { animation-delay: 0.15s; }
+  .section:nth-child(3)  { animation-delay: 0.2s; }
+  .section:nth-child(4)  { animation-delay: 0.25s; }
+  .section:nth-child(5)  { animation-delay: 0.3s; }
+  .section:nth-child(6)  { animation-delay: 0.35s; }
+  .section:nth-child(7)  { animation-delay: 0.4s; }
+  .section:nth-child(8)  { animation-delay: 0.45s; }
+  .section:nth-child(9)  { animation-delay: 0.5s; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .section-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--teal);
+    line-height: 1;
+    min-width: 36px;
+    opacity: 0.5;
+  }
+
+  .section-info {}
+
+  .section-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+  }
+
+  /* ════════════ CONTENT CARD ════════════ */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+
+  .card p {
+    font-size: 14.5px;
+    line-height: 1.85;
+    color: rgba(255,255,255,0.82);
+    margin-bottom: 12px;
+  }
+
+  .card p:last-child { margin-bottom: 0; }
+
+  .card .hl  { color: var(--gold-light); font-weight: 500; }
+  .card .tl  { color: var(--teal-light); font-weight: 500; }
+  .card .gr  { color: var(--green); font-weight: 500; }
+  .card .rd  { color: var(--red); font-weight: 500; }
+
+  /* ════════════ CODE BLOCK ════════════ */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .code-header {
+    background: rgba(255,255,255,0.04);
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .code-dots { display: flex; gap: 6px; }
+  .code-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .code-dots span:nth-child(1) { background: #FF5F57; }
+  .code-dots span:nth-child(2) { background: #FEBC2E; }
+  .code-dots span:nth-child(3) { background: #28C840; }
+
+  .code-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--gray);
+    letter-spacing: 1px;
+  }
+
+  pre {
+    padding: 22px 24px;
+    overflow-x: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.75;
+    color: #B8D0E8;
+  }
+
+  .py-kw   { color: #C792EA; }   /* keyword: def, class, if, return */
+  .py-fn   { color: #82AAFF; }   /* function names */
+  .py-str  { color: #C3E88D; }   /* strings */
+  .py-num  { color: #F78C6C; }   /* numbers */
+  .py-cm   { color: #546E7A; font-style: italic; } /* comments */
+  .py-cls  { color: #FFCB6B; }   /* class names */
+  .py-self { color: #89DDFF; }   /* self */
+  .py-attr { color: #00BCD4; }   /* attributes */
+
+  /* ════════════ CONCEPT PILL ════════════ */
+  .concept-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .concept-pill {
+    background: rgba(0,163,163,0.1);
+    border: 1px solid rgba(0,163,163,0.25);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--teal-light);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ════════════ TABLE ════════════ */
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  .ref-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--gold);
+    text-transform: uppercase;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .ref-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.78);
+    vertical-align: top;
+    line-height: 1.6;
+  }
+
+  .ref-table tr:last-child td { border-bottom: none; }
+  .ref-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+  .ref-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--teal-light);
+    white-space: nowrap;
+  }
+
+  /* ════════════ FLOW DIAGRAM ════════════ */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 16px;
+  }
+
+  .flow-item {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .flow-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 44px;
+    flex-shrink: 0;
+  }
+
+  .flow-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--white);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  .flow-line {
+    width: 2px;
+    flex: 1;
+    background: rgba(255,255,255,0.08);
+    margin: 0 auto;
+    min-height: 20px;
+  }
+
+  .flow-content {
+    flex: 1;
+    padding: 6px 0 24px 18px;
+  }
+
+  .flow-title {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+
+  .flow-desc {
+    font-size: 13px;
+    color: var(--gray);
+    line-height: 1.6;
+  }
+
+  .flow-item:last-child .flow-content { padding-bottom: 0; }
+  .flow-item:last-child .flow-line { display: none; }
+
+  /* ════════════ PATTERN BADGE ════════════ */
+  .pattern-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .pattern-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+
+  .pattern-card:hover { border-color: rgba(201,151,58,0.3); }
+
+  .pattern-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pattern-name::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+
+  .pattern-desc {
+    font-size: 13px;
+    color: var(--gray);
+    line-height: 1.65;
+  }
+
+  /* ════════════ CHEAT SHEET ════════════ */
+  .cheat-sheet {
+    background: var(--navy3);
+    border: 1px solid rgba(201,151,58,0.2);
+    border-radius: 18px;
+    padding: 32px;
+    margin-top: 8px;
+  }
+
+  .cheat-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--gold-light);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ════════════ STATUS CODES ════════════ */
+  .status-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .status-card {
+    flex: 1;
+    min-width: 180px;
+    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid;
+  }
+
+  .status-card.detected {
+    background: rgba(232,75,106,0.08);
+    border-color: rgba(232,75,106,0.25);
+  }
+
+  .status-card.recognized {
+    background: rgba(6,196,144,0.08);
+    border-color: rgba(6,196,144,0.25);
+  }
+
+  .status-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .status-card.detected  .status-code { color: var(--red); }
+  .status-card.recognized .status-code { color: var(--green); }
+
+  .status-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+
+  .status-desc {
+    font-size: 12px;
+    color: var(--gray);
+    line-height: 1.5;
+  }
+
+  /* ════════════ INLINE NOTE ════════════ */
+  .note {
+    background: rgba(201,151,58,0.08);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+
+  .note strong { color: var(--gold-light); }
+
+  /* ════════════ PRINT BUTTON ════════════ */
+  .print-btn {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    background: var(--gold);
+    color: var(--navy);
+    border: none;
+    border-radius: 100px;
+    padding: 14px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 30px rgba(201,151,58,0.35);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 100;
+  }
+
+  .print-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(201,151,58,0.5);
+  }
+
+  /* ════════════ ANIMATIONS ════════════ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ════════════ PRINT ════════════ */
+  @media print {
+    body { background: white; color: black; }
+    body::before, body::after { display: none; }
+    .print-btn { display: none; }
+    .card, .cheat-sheet, .code-wrap, .toc { background: #f0f0f0; border: 1px solid #ccc; break-inside: avoid; }
+    pre { background: #e8e8e8; color: #111; }
+    .header h1 { -webkit-text-fill-color: #111; color: #111; }
+    .section { break-inside: avoid; }
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 36px 18px 90px; }
+    .card { padding: 20px; }
+    pre { font-size: 11.5px; padding: 16px; }
+    .toc-grid { grid-template-columns: 1fr 1fr; }
+    .pattern-grid { grid-template-columns: 1fr; }
+    .status-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="eyebrow">GIN456 · Technical Study Guide</div>
+    <h1>Face Learning &amp;<br>Recognition Behavior</h1>
+    <p class="header-sub">NAO / Pepper Robot · Choregraphe · NAOqi · <span>Georges Sarkis</span></p>
+  </header>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <div class="toc-title">Contents — click to jump</div>
+    <div class="toc-grid">
+      <a class="toc-item" href="#s1"><span class="toc-num">01</span> Project Overview</a>
+      <a class="toc-item" href="#s2"><span class="toc-num">02</span> ALFaceDetection API</a>
+      <a class="toc-item" href="#s3"><span class="toc-num">03</span> ALMemory Events</a>
+      <a class="toc-item" href="#s4"><span class="toc-num">04</span> Class Lifecycle</a>
+      <a class="toc-item" href="#s5"><span class="toc-num">05</span> Stage-by-Stage Code</a>
+      <a class="toc-item" href="#s6"><span class="toc-num">06</span> Wire Connections</a>
+      <a class="toc-item" href="#s7"><span class="toc-num">07</span> Key Concepts</a>
+      <a class="toc-item" href="#s8"><span class="toc-num">08</span> Cheat Sheet</a>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 1 ═══════ -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <div class="section-num">01</div>
+      <div class="section-info">
+        <div class="section-tag">Introduction</div>
+        <div class="section-title">Project Overview</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>This behavior runs on a <span class="hl">NAO/Pepper robot</span> using <span class="tl">Choregraphe</span> (SoftBank Robotics' visual programming IDE) and <span class="tl">NAOqi</span> (the robot's operating system and API framework).</p>
+      <p>The behavior does two things: <span class="hl">Learns</span> a face and stores it in the robot's internal database, then <span class="hl">Recognizes</span> that face later and greets the person by name.</p>
+    </div>
+
+    <div class="flow">
+      <div class="flow-item">
+        <div class="flow-left">
+          <div class="flow-circle" style="background:var(--navy2); border:2px solid var(--teal);">1</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-content">
+          <div class="flow-title">Text Edit Box</div>
+          <div class="flow-desc">Sends the name <code style="color:var(--teal-light); font-family:'DM Mono',monospace; font-size:12px;">"antonio"</code> when behavior starts</div>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-left">
+          <div class="flow-circle" style="background:var(--navy2); border:2px solid var(--gold);">2</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-content">
+          <div class="flow-title">Learn Face Sub-Behavior</div>
+          <div class="flow-desc">Only Once → Wait 5s (eyes blue) → WaitToSend → learnFace("antonio")</div>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-left">
+          <div class="flow-circle" style="background:var(--navy2); border:2px solid var(--teal);">3</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-content">
+          <div class="flow-title">Result</div>
+          <div class="flow-desc"><span style="color:var(--green)">● Eyes GREEN = success</span> &nbsp;/&nbsp; <span style="color:var(--red)">● Eyes RED = failure</span></div>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-left">
+          <div class="flow-circle" style="background:var(--navy2); border:2px solid var(--gold);">4</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-content">
+          <div class="flow-title">Face Reco. Box</div>
+          <div class="flow-desc">Monitors camera continuously via ALMemory FaceDetected event</div>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-left">
+          <div class="flow-circle" style="background:var(--navy2); border:2px solid var(--teal);">5</div>
+        </div>
+        <div class="flow-content">
+          <div class="flow-title">Say Boxes</div>
+          <div class="flow-desc">Known face → "Hello antonio!" &nbsp;/&nbsp; Unknown → "I don't know you yet"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 2 ═══════ -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <div class="section-num">02</div>
+      <div class="section-info">
+        <div class="section-tag">Core API</div>
+        <div class="section-title">ALFaceDetection — The Core Module</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>Everything depends on this NAOqi module. You access it via a <span class="hl">proxy</span>:</p>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-label">Python · ALProxy</div>
+      </div>
+      <pre><span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span> = <span class="py-fn">ALProxy</span>(<span class="py-str">"ALFaceDetection"</span>)</pre>
+    </div>
+
+    <div class="note"><strong>What ALProxy does:</strong> It creates a local Python object that communicates over the network with the actual module running on the robot. The string "ALFaceDetection" is the registered service name in NAOqi's service directory.</div>
+
+    <div class="card">
+      <p><strong style="color:var(--white)">Key methods on this proxy:</strong></p>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-label">Key Methods</div>
+      </div>
+      <pre><span class="py-cm"># Store current face in database linked to "name"</span>
+<span class="py-cm"># Returns True on success, False on failure</span>
+<span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span>.<span class="py-fn">learnFace</span>(<span class="py-str">"antonio"</span>)
+
+<span class="py-cm"># Track detected faces with the robot's head motors</span>
+<span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span>.<span class="py-fn">setTrackingEnabled</span>(<span class="py-fn">True</span>)
+
+<span class="py-cm"># 80% confidence required before confirming recognition</span>
+<span class="py-self">self</span>.<span class="py-attr">faceProxy</span>.<span class="py-fn">setRecognitionConfidenceThreshold</span>(<span class="py-num">0.8</span>)</pre>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 3 ═══════ -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <div class="section-num">03</div>
+      <div class="section-info">
+        <div class="section-tag">Event System</div>
+        <div class="section-title">ALMemory — The Event Bus</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>NAOqi uses a <span class="hl">publish-subscribe event model</span> through ALMemory. Think of it as a global shared blackboard:</p>
+      <p><span class="tl">Camera detects face</span> → writes data to <code style="font-family:'DM Mono',monospace; color:var(--gold-light); font-size:12px;">ALMemory["FaceDetected"]</code> → fires event → FaceReco. box receives it</p>
+    </div>
+
+    <div class="card">
+      <p><strong style="color:var(--white)">The FaceDetected data structure</strong> is a nested array:</p>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-label">ALMemory FaceDetected Structure</div>
+      </div>
+      <pre>p = [
+  timestamp,          <span class="py-cm"># [0] when the event fired</span>
+  [                   <span class="py-cm"># [1] list of all detected faces</span>
+    [
+      faceInfo,       <span class="py-cm"># raw detection parameters</span>
+      [               <span class="py-cm"># extra info array</span>
+        label,        <span class="py-cm"># [0] name string e.g. "antonio"</span>
+        confidence,   <span class="py-cm"># [1] float 0.0 → 1.0</span>
+        ...
+      ]
+    ],
+  ],
+  ...
+]
+
+<span class="py-cm"># Get most recent face — take last element of p[1]</span>
+result = p[<span class="py-num">1</span>][<span class="py-fn">len</span>(p[<span class="py-num">1</span>])-<span class="py-num">1</span>]</pre>
+    </div>
+
+    <div class="status-row">
+      <div class="status-card detected">
+        <div class="status-code">4</div>
+        <div class="status-label">Detected — Not Recognized</div>
+        <div class="status-desc">Face seen in camera but has no match in database. Fires "stranger" path.</div>
+      </div>
+      <div class="status-card recognized">
+        <div class="status-code">2 / 3</div>
+        <div class="status-label">Recognized ✓</div>
+        <div class="status-desc">Face matched to stored entry above confidence threshold. Fires greeting path.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 4 ═══════ -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <div class="section-num">04</div>
+      <div class="section-info">
+        <div class="section-tag">Structure</div>
+        <div class="section-title">Choregraphe Box Lifecycle</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>Every box in Choregraphe runs a Python class inheriting from <span class="tl">GeneratedClass</span>. There are four key methods:</p>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-label">Box Lifecycle Template</div>
+      </div>
+      <pre><span class="py-kw">class</span> <span class="py-cls">MyClass</span>(<span class="py-cls">GeneratedClass</span>):
+    <span class="py-kw">def</span> <span class="py-fn">__init__</span>(<span class="py-self">self</span>):
+        <span class="py-cls">GeneratedClass</span>.<span class="py-fn">__init__</span>(<span class="py-self">self</span>, <span class="py-fn">False</span>)
+        <span class="py-cm"># False = don't log every signal — runs once on load</span>
+        <span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span> = <span class="py-fn">ALProxy</span>(<span class="py-str">"ALFaceDetection"</span>)
+
+    <span class="py-kw">def</span> <span class="py-fn">onLoad</span>(<span class="py-self">self</span>):
+        <span class="py-cm"># Called when behavior STARTS — initialize state here</span>
+        <span class="py-self">self</span>.<span class="py-attr">bIsRunning</span> = <span class="py-fn">False</span>
+
+    <span class="py-kw">def</span> <span class="py-fn">onUnload</span>(<span class="py-self">self</span>):
+        <span class="py-cm"># Called when behavior STOPS — clean up resources</span>
+        <span class="py-self">self</span>.<span class="py-attr">bIsRunning</span> = <span class="py-fn">False</span>
+
+    <span class="py-kw">def</span> <span class="py-fn">onInput_onStart</span>(<span class="py-self">self</span>):
+        <span class="py-cm"># Called when "onStart" input wire fires — main entry point</span>
+        <span class="py-kw">pass</span>
+
+<span class="py-cm"># Output methods — how a box sends signals forward:</span>
+<span class="py-self">self</span>.<span class="py-fn">onStopped</span>()              <span class="py-cm"># fire output with no data</span>
+<span class="py-self">self</span>.<span class="py-fn">onStopped</span>(<span class="py-str">"antonio"</span>)    <span class="py-cm"># fire output WITH data</span>
+<span class="py-self">self</span>.<span class="py-fn">onSuccess</span>()              <span class="py-cm"># fire success output</span>
+<span class="py-self">self</span>.<span class="py-fn">onFailure</span>()              <span class="py-cm"># fire failure output</span></pre>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 5 ═══════ -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <div class="section-num">05</div>
+      <div class="section-info">
+        <div class="section-tag">Deep Dive</div>
+        <div class="section-title">Stage-by-Stage Code Walkthrough</div>
+      </div>
+    </div>
+
+    <!-- 5a Only Once -->
+    <div class="card"><p style="font-size:13px; color:var(--teal); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 2a — Only Once Box</p>
+      <p>Ensures the learning pipeline triggers <span class="hl">exactly once</span> per behavior run using a boolean flag. Without this, rapid event firing could call learnFace() multiple times simultaneously.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Only Once</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onLoad</span>(<span class="py-self">self</span>):
+    <span class="py-self">self</span>.<span class="py-attr">bFirstTime</span> = <span class="py-fn">True</span>
+
+<span class="py-kw">def</span> <span class="py-fn">onInput_onSignal</span>(<span class="py-self">self</span>, p):
+    <span class="py-kw">if</span> <span class="py-self">self</span>.<span class="py-attr">bFirstTime</span>:         <span class="py-cm"># first call: allow through</span>
+        <span class="py-self">self</span>.<span class="py-attr">bFirstTime</span> = <span class="py-fn">False</span>  <span class="py-cm"># flip — never True again</span>
+        <span class="py-self">self</span>.<span class="py-fn">firstTime</span>(p)          <span class="py-cm"># fire output with data p</span>
+    <span class="py-cm"># subsequent calls: if block skipped, nothing happens</span></pre>
+    </div>
+
+    <!-- 5b Wait -->
+    <div class="card"><p style="font-size:13px; color:var(--gold); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 2b — Wait Box (5 seconds)</p>
+      <p><span class="tl">qi.async</span> schedules a function call after a delay <span class="hl">without blocking</span> the main thread. Delay is in <span class="hl">microseconds</span> — multiply seconds × 1,000,000.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Wait Box</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onInput_onStart</span>(<span class="py-self">self</span>):
+    <span class="py-self">self</span>.<span class="py-attr">waiting</span> = qi.<span class="py-fn">async</span>(
+        <span class="py-self">self</span>.<span class="py-attr">triggerOutput</span>,
+        delay=<span class="py-fn">int</span>(<span class="py-self">self</span>.<span class="py-fn">getParameter</span>(<span class="py-str">"Timeout (s)"</span>) * <span class="py-num">1000</span> * <span class="py-num">1000</span>)
+    )   <span class="py-cm"># runs triggerOutput() after 5 seconds on background thread</span>
+
+<span class="py-kw">def</span> <span class="py-fn">onUnload</span>(<span class="py-self">self</span>):
+    <span class="py-kw">if</span> <span class="py-self">self</span>.<span class="py-attr">waiting</span>:
+        <span class="py-self">self</span>.<span class="py-attr">waiting</span>.<span class="py-fn">cancel</span>()  <span class="py-cm"># cancel if behavior stops early</span></pre>
+    </div>
+
+    <!-- 5c Eyes LEDs -->
+    <div class="card"><p style="font-size:13px; color:var(--teal); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 2c — Eyes LEDs Box</p>
+      <p><span class="tl">post.fadeRGB</span> is asynchronous (returns an ID immediately). <span class="hl">leds.wait(id, 0)</span> then explicitly blocks until the animation finishes. Color is packed as a 24-bit integer: <span class="hl">R×65536 + G×256 + B</span>.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Eyes LEDs · Color Encoding</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onInput_color</span>(<span class="py-self">self</span>, p):
+    <span class="py-cm"># p = [red, green, blue] each 0.0 → 1.0</span>
+    sGroup = <span class="py-str">"FaceLeds"</span>  <span class="py-cm"># or LeftFaceLeds / RightFaceLeds</span>
+
+    <span class="py-cm"># Pack RGB floats → single 24-bit integer</span>
+    colorInt = <span class="py-fn">int</span>(<span class="py-num">256</span>*<span class="py-num">256</span>*p[<span class="py-num">0</span>] + <span class="py-num">256</span>*p[<span class="py-num">1</span>] + p[<span class="py-num">2</span>])
+
+    <span class="py-cm"># post.fadeRGB = async call, returns ID immediately</span>
+    id = <span class="py-self">self</span>.<span class="py-attr">leds</span>.post.<span class="py-fn">fadeRGB</span>(sGroup, colorInt, duration)
+    <span class="py-self">self</span>.<span class="py-attr">ids</span>.<span class="py-fn">append</span>(id)
+    <span class="py-self">self</span>.<span class="py-attr">leds</span>.<span class="py-fn">wait</span>(id, <span class="py-num">0</span>)  <span class="py-cm"># NOW block until animation done</span>
+    <span class="py-self">self</span>.<span class="py-attr">ids</span>.<span class="py-fn">remove</span>(id)
+
+    <span class="py-kw">if</span> <span class="py-self">self</span>.<span class="py-attr">ids</span> == []:
+        <span class="py-self">self</span>.<span class="py-fn">onDone</span>()</pre>
+    </div>
+
+    <!-- 5d WaitToSend -->
+    <div class="card"><p style="font-size:13px; color:var(--gold); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 2d — WaitToSend Box (Synchronization Gate)</p>
+      <p>Implements a <span class="hl">two-condition gate</span> (join node). Only fires output when <span class="tl">both</span> conditions are met regardless of order: (1) name string arrived + (2) 5-second timer fired.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">WaitToSend · Synchronization Gate</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onLoad</span>(<span class="py-self">self</span>):
+    <span class="py-self">self</span>.<span class="py-attr">ok1</span> = <span class="py-fn">None</span>   <span class="py-cm"># stores the name string</span>
+    <span class="py-self">self</span>.<span class="py-attr">ok2</span> = <span class="py-fn">False</span>  <span class="py-cm"># True if timer already fired</span>
+
+<span class="py-kw">def</span> <span class="py-fn">onInput_onMessage</span>(<span class="py-self">self</span>, p):   <span class="py-cm"># name "antonio" arrives</span>
+    <span class="py-kw">if</span> <span class="py-kw">not</span> <span class="py-self">self</span>.<span class="py-attr">ok2</span>:
+        <span class="py-self">self</span>.<span class="py-attr">ok1</span> = p        <span class="py-cm"># timer not yet fired → store name</span>
+    <span class="py-kw">else</span>:
+        <span class="py-self">self</span>.<span class="py-fn">ok</span>(p)          <span class="py-cm"># timer already fired → GO!</span>
+
+<span class="py-kw">def</span> <span class="py-fn">onInput_onSignal</span>(<span class="py-self">self</span>):         <span class="py-cm"># 5-second timer fires</span>
+    <span class="py-kw">if</span> <span class="py-self">self</span>.<span class="py-attr">ok1</span> <span class="py-kw">is</span> <span class="py-fn">None</span>:
+        <span class="py-self">self</span>.<span class="py-attr">ok2</span> = <span class="py-fn">True</span>     <span class="py-cm"># name not yet here → set flag, wait</span>
+    <span class="py-kw">else</span>:
+        <span class="py-self">self</span>.<span class="py-fn">ok</span>(<span class="py-self">self</span>.<span class="py-attr">ok1</span>)    <span class="py-cm"># name already stored → GO!</span></pre>
+    </div>
+
+    <!-- 5e learnFace -->
+    <div class="card"><p style="font-size:13px; color:var(--teal); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 2e — Inner Learn Face Box ⭐ THE CORE</p>
+      <p>Calls <span class="tl">ALFaceDetection.learnFace()</span> which captures the current camera frame, extracts facial features, and stores them in the robot's database linked to the name string. Uses <span class="hl">try/except</span> because hardware APIs can fail at any time.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">learnFace() — Core Learning Logic</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onInput_onLearn</span>(<span class="py-self">self</span>, p):
+    <span class="py-cm"># p = "antonio"</span>
+
+    <span class="py-cm"># Guard clause — prevent concurrent calls (lightweight mutex)</span>
+    <span class="py-kw">if</span> <span class="py-self">self</span>.<span class="py-attr">bIsRunning</span>:
+        <span class="py-kw">return</span>
+    <span class="py-self">self</span>.<span class="py-attr">bIsRunning</span> = <span class="py-fn">True</span>
+
+    <span class="py-self">self</span>.<span class="py-attr">logger</span>.<span class="py-fn">info</span>(<span class="py-str">"LearnFace called with name: "</span> + <span class="py-fn">str</span>(p))
+
+    <span class="py-kw">try</span>:
+        <span class="py-cm"># Enable head tracking so robot follows the face</span>
+        <span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span>.<span class="py-fn">setTrackingEnabled</span>(<span class="py-fn">True</span>)
+
+        <span class="py-cm"># THE CORE CALL:</span>
+        <span class="py-cm"># Snapshot → extract features → store in database as "antonio"</span>
+        result = <span class="py-self">self</span>.<span class="py-attr">faceDetectionModule</span>.<span class="py-fn">learnFace</span>(p)
+
+        <span class="py-self">self</span>.<span class="py-attr">logger</span>.<span class="py-fn">info</span>(<span class="py-str">"learnFace result: "</span> + <span class="py-fn">str</span>(result))
+
+        <span class="py-kw">if</span> result:
+            <span class="py-self">self</span>.<span class="py-fn">onSuccess</span>()   <span class="py-cm"># Eyes turn GREEN</span>
+        <span class="py-kw">else</span>:
+            <span class="py-self">self</span>.<span class="py-fn">onFailure</span>()   <span class="py-cm"># Eyes turn RED</span>
+
+    <span class="py-kw">except</span> <span class="py-cls">Exception</span> <span class="py-kw">as</span> e:
+        <span class="py-cm"># NAOqi disconnection, module crash, no face in frame…</span>
+        <span class="py-self">self</span>.<span class="py-attr">logger</span>.<span class="py-fn">error</span>(<span class="py-str">"learnFace exception: "</span> + <span class="py-fn">str</span>(e))
+        <span class="py-self">self</span>.<span class="py-fn">onFailure</span>()
+
+    <span class="py-self">self</span>.<span class="py-attr">bIsRunning</span> = <span class="py-fn">False</span>  <span class="py-cm"># reset guard</span></pre>
+    </div>
+
+    <!-- 5f Face Reco Recognition -->
+    <div class="card"><p style="font-size:13px; color:var(--gold); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 3 — Face Reco. Inner Box</p>
+      <p>Fires every time ALMemory's <span class="tl">FaceDetected</span> event triggers. Parses the nested face data array, checks the status code, and routes to the correct output.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Recognition Logic</div></div>
+      <pre><span class="py-kw">def</span> <span class="py-fn">onInput_onStart</span>(<span class="py-self">self</span>, p):
+    <span class="py-cm"># Set 80% confidence threshold</span>
+    <span class="py-self">self</span>.<span class="py-attr">faceProxy</span>.<span class="py-fn">setRecognitionConfidenceThreshold</span>(<span class="py-num">0.8</span>)
+
+    <span class="py-kw">if</span> <span class="py-fn">len</span>(p) > <span class="py-num">0</span> <span class="py-kw">and</span> <span class="py-fn">len</span>(p[<span class="py-num">1</span>]) > <span class="py-num">0</span>:
+        <span class="py-cm"># Get most recent frame's face data</span>
+        result = p[<span class="py-num">1</span>][<span class="py-fn">len</span>(p[<span class="py-num">1</span>])-<span class="py-num">1</span>]
+
+        <span class="py-kw">if</span> <span class="py-fn">len</span>(result) == <span class="py-num">1</span>:
+            <span class="py-kw">if</span> result[<span class="py-num">0</span>] == <span class="py-num">4</span>:              <span class="py-cm"># SEEN, not recognized</span>
+                <span class="py-self">self</span>.<span class="py-fn">onDetectWithoutReco</span>()
+
+        <span class="py-kw">elif</span> <span class="py-fn">len</span>(result) == <span class="py-num">2</span>:
+            <span class="py-kw">if</span> result[<span class="py-num">0</span>] <span class="py-kw">in</span> [<span class="py-num">2</span>, <span class="py-num">3</span>]:         <span class="py-cm"># RECOGNIZED above 80%</span>
+                <span class="py-kw">for</span> name <span class="py-kw">in</span> result[<span class="py-num">1</span>]:
+                    <span class="py-self">self</span>.<span class="py-fn">onRecognizedFace</span>(name)  <span class="py-cm"># sends "antonio"</span></pre>
+    </div>
+
+    <!-- 5g Say boxes -->
+    <div class="card"><p style="font-size:13px; color:var(--teal); font-family:'DM Mono',monospace; letter-spacing:1px;">STAGE 4 — Say Boxes</p>
+      <p><span class="tl">ALTextToSpeech.say()</span> is <span class="hl">synchronous</span> — blocks until robot finishes speaking. Use <span class="tl">post.say()</span> for non-blocking speech. <span class="tl">str(p)</span> converts p safely even if it is not already a string.</p>
+    </div>
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Say Boxes</div></div>
+      <pre><span class="py-cm"># Known face → receives "antonio" as parameter p</span>
+<span class="py-kw">def</span> <span class="py-fn">onInput_onStart</span>(<span class="py-self">self</span>, p):
+    sentence = <span class="py-str">"Hello "</span> + <span class="py-fn">str</span>(p) + <span class="py-str">", I recognize you!"</span>
+    <span class="py-self">self</span>.<span class="py-attr">tts</span>.<span class="py-fn">say</span>(sentence)   <span class="py-cm"># SYNCHRONOUS — waits until done</span>
+    <span class="py-self">self</span>.<span class="py-fn">onStopped</span>()
+
+<span class="py-cm"># Unknown face → no parameter needed</span>
+<span class="py-kw">def</span> <span class="py-fn">onInput_onStart</span>(<span class="py-self">self</span>):
+    sentence = <span class="py-str">"I see you, but I do not know your name yet."</span>
+    <span class="py-self">self</span>.<span class="py-attr">tts</span>.<span class="py-fn">say</span>(sentence)
+    <span class="py-self">self</span>.<span class="py-fn">onStopped</span>()</pre>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 6 ═══════ -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <div class="section-num">06</div>
+      <div class="section-info">
+        <div class="section-tag">Architecture</div>
+        <div class="section-title">Wire Connections — Data Flow</div>
+      </div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Learning Pipeline</div></div>
+      <pre>[Text Edit] ──── <span class="py-str">"antonio"</span> ────► [LearnFace.onStart]
+                                         │
+                             ┌───────────┴──────────────┐
+                             ▼                          ▼
+                       [OnlyOnce]         [WaitToSend.onMessage]
+                             │
+                             ▼
+                        [Wait 5s] ──────► [WaitToSend.onSignal]
+                                                  │
+                                      (both conditions met)
+                                                  │
+                                                  ▼
+                                    [learnFace(<span class="py-str">"antonio"</span>)]
+                                      ┌───────────┴──────────┐
+                                      ▼                      ▼
+                                 [onSuccess]            [onFailure]
+                                 Eyes <span class="py-cm">GREEN</span>             Eyes <span class="py-cm">RED</span></pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-header"><div class="code-dots"><span></span><span></span><span></span></div><div class="code-label">Recognition Pipeline</div></div>
+      <pre>[FaceReco.onStart] ──► subscribes to ALMemory FaceDetected
+                                    │
+              ┌─────────────────────┴──────────────────────┐
+              ▼                                            ▼
+    status code <span class="py-num">2</span> or <span class="py-num">3</span>                        status code <span class="py-num">4</span>
+    [onRecognizedFace(<span class="py-str">"antonio"</span>)]          [onDetectWithoutReco]
+              │                                            │
+              ▼                                            ▼
+  [Say: <span class="py-str">"Hello antonio!"</span>]            [Say: <span class="py-str">"I don't know you"</span>]</pre>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 7 ═══════ -->
+  <div class="section" id="s7">
+    <div class="section-header">
+      <div class="section-num">07</div>
+      <div class="section-info">
+        <div class="section-tag">Theory</div>
+        <div class="section-title">Key Technical Concepts</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>These are the <span class="hl">design patterns and CS concepts</span> your professor will want to hear you reference:</p>
+    </div>
+
+    <div class="pattern-grid">
+      <div class="pattern-card">
+        <div class="pattern-name">Proxy Pattern</div>
+        <div class="pattern-desc">ALProxy is the Proxy design pattern — a local object that transparently forwards calls to a remote service. The caller doesn't care if it's local or over a network.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-name">Pub-Sub Architecture</div>
+        <div class="pattern-desc">FaceDetected ALMemory event is publish-subscribe. The camera pipeline publishes events; any number of subscribers can react independently.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-name">Barrier Synchronization</div>
+        <div class="pattern-desc">WaitToSend is a join node — don't proceed until multiple independent conditions are all satisfied. Same concept as a barrier in concurrent programming.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-name">Guard Clause + Mutex</div>
+        <div class="pattern-desc">bIsRunning flag is a lightweight mutual exclusion mechanism preventing re-entrant calls to learnFace(), which is not thread-safe.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-name">Precision vs Recall</div>
+        <div class="pattern-desc">Setting 0.8 threshold is a classic ML trade-off. Higher = fewer false positives, more false negatives. Lower = more matches, more wrong recognitions.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-name">Defensive Programming</div>
+        <div class="pattern-desc">Try/except for hardware APIs. In robotics, hardware can fail at any time (WiFi, module crash, face lost). Graceful failure is critical — a crash freezes the robot mid-interaction.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SECTION 8 ═══════ -->
+  <div class="section" id="s8">
+    <div class="section-header">
+      <div class="section-num">08</div>
+      <div class="section-info">
+        <div class="section-tag">Reference</div>
+        <div class="section-title">Quick Cheat Sheet</div>
+      </div>
+    </div>
+
+    <div class="cheat-sheet">
+      <div class="cheat-title">Everything in one place</div>
+      <table class="ref-table">
+        <thead>
+          <tr><th>Term / Method</th><th>What it means</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ALProxy("X")</td><td>Connect to NAOqi module X over the network</td></tr>
+          <tr><td>learnFace(name)</td><td>Snapshot current face → extract features → store as "name" in database</td></tr>
+          <tr><td>setTrackingEnabled(True)</td><td>Robot head follows the detected face with motors</td></tr>
+          <tr><td>setRecognitionConfidenceThreshold(0.8)</td><td>Must be 80%+ sure before confirming recognition</td></tr>
+          <tr><td>FaceDetected</td><td>ALMemory event key — fires every time camera sees a face</td></tr>
+          <tr><td>Status code 4</td><td>Face detected but NOT recognized (stranger)</td></tr>
+          <tr><td>Status code 2 / 3</td><td>Face recognized above confidence threshold</td></tr>
+          <tr><td>p[1][len(p[1])-1]</td><td>Get the most recent face entry from ALMemory data</td></tr>
+          <tr><td>self.getParameter("X")</td><td>Read a box UI setting configured in Choregraphe</td></tr>
+          <tr><td>self.logger.info("X")</td><td>Print to Choregraphe console for debugging</td></tr>
+          <tr><td>self.onStopped()</td><td>Fire the box's output signal with no data</td></tr>
+          <tr><td>self.onStopped("antonio")</td><td>Fire the box's output signal WITH data attached</td></tr>
+          <tr><td>post.method()</td><td>Call any NAOqi method asynchronously (non-blocking)</td></tr>
+          <tr><td>qi.async(fn, delay=N)</td><td>Schedule fn after N microseconds on background thread</td></tr>
+          <tr><td>bIsRunning flag</td><td>Guard clause — prevents concurrent execution of learnFace()</td></tr>
+          <tr><td>GeneratedClass</td><td>Base class for all Choregraphe box Python scripts (modern NAOqi)</td></tr>
+          <tr><td>R×65536 + G×256 + B</td><td>Pack RGB 0-255 values into a single 24-bit integer for ALLeds</td></tr>
+          <tr><td>tts.say()</td><td>Synchronous speech — blocks until Pepper finishes speaking</td></tr>
+          <tr><td>tts.post.say()</td><td>Asynchronous speech — returns immediately, Pepper speaks in background</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<button class="print-btn" onclick="window.print()">🖨 Save / Print</button>
+
+</body>
+</html>
